@@ -1,10 +1,12 @@
 export interface LogEntry {
     timestamp: string;
     service_name: string;
-    status_code: number;
+    level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG' | 'FATAL' | 'UNKNOWN';
+    status_code?: number;
     duration_ms: number;
     message: string;
-    interaction_target?: string; // Optional: another service this interacts with
+    interaction_target?: string;
+    raw?: string;
 }
 
 export interface ParsedData {
@@ -23,9 +25,4 @@ export interface ParsedData {
 export interface ErrorFrequencyPoint {
     timeSlot: string;
     count: number;
-}
-
-export interface ProcessingError {
-    line: number;
-    message: string;
 }

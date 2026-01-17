@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import ReactFlow, {
     Background,
     Controls,
@@ -6,7 +6,8 @@ import ReactFlow, {
     useEdgesState,
     Node,
     Edge,
-    MarkerType
+    MarkerType,
+    NodeMouseHandler
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { ParsedData } from '../../types';
@@ -23,62 +24,69 @@ const nodeTypes = {
 export function FlowCanvas({ data }: FlowCanvasProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+    const [highlightedNode, setHighlightedNode] = useState<string | null>(null);
 
     useEffect(() => {
         if (!data) return;
 
-        // 1. Identify unique services (Nodes)
+        // 1. Identify services & stats
         const serviceMap = new Map<string, { hasErrors: boolean; hasHighLatency: boolean }>();
 
+        // Helper to get or init
+        const getService = (name: string) => {
+            if (!serviceMap.has(name)) {
+                serviceMap.set(name, { hasErrors: false, hasHighLatency: false });
+            }
+            return serviceMap.get(name)!;
+        }
+
         data.logs.forEach(log => {
-            const current = serviceMap.get(log.service_name) || { hasErrors: false, hasHighLatency: false };
-            if (log.status_code >= 400) current.hasErrors = true;
-            if (log.duration_ms > 2000) current.hasHighLatency = true;
-            serviceMap.set(log.service_name, current);
+            const source = getService(log.service_name);
+            if (log.level === 'ERROR' || log.level === 'FATAL' || (log.status_code && log.status_code >= 400)) {
+                source.hasErrors = true;
+            }
+            if (log.duration_ms > 2000) {
+                source.hasHighLatency = true;
+            }
 
             if (log.interaction_target) {
-                // Ensure target exists in map too, even if we don't have logs FROM it
-                if (!serviceMap.has(log.interaction_target)) {
-                    serviceMap.set(log.interaction_target, { hasErrors: false, hasHighLatency: false });
-                }
+                getService(log.interaction_target);
             }
         });
 
-        // 2. Create Layout (Manual Grid for now since we lack dagre)
-        // Simple logic: distribute in a grid or circle
+        // 2. Build Nodes
         const serviceNames = Array.from(serviceMap.keys());
         const newNodes: Node[] = serviceNames.map((name, index) => {
-            // Simple positioning logic: 3 columns
             const col = index % 3;
             const row = Math.floor(index / 3);
 
             return {
                 id: name,
                 type: 'serviceNode',
-                position: { x: col * 350 + 100, y: row * 250 + 100 }, // Increased spacing
+                position: { x: col * 350 + 100, y: row * 250 + 100 },
                 data: {
                     label: name,
-                    hasErrors: serviceMap.get(name)!.hasErrors,
-                    hasHighLatency: serviceMap.get(name)!.hasHighLatency
+                    ...serviceMap.get(name)!,
+                    isDimmed: false // Init as not dimmed
                 },
             };
         });
 
-        // 3. Create Edges
+        // 3. Build Edges
         const newEdges: Edge[] = [];
         const edgeSet = new Set<string>();
 
         data.logs.forEach(log => {
-            if (log.interaction_target) {
+            if (log.interaction_target && log.interaction_target !== log.service_name) {
                 const edgeId = `${log.service_name}-${log.interaction_target}`;
-                if (!edgeSet.has(edgeId) && log.interaction_target !== log.service_name) {
+                if (!edgeSet.has(edgeId)) {
                     edgeSet.add(edgeId);
                     newEdges.push({
                         id: edgeId,
                         source: log.service_name,
                         target: log.interaction_target,
                         animated: true,
-                        style: { stroke: '#06b6d4', strokeWidth: 2 },
+                        style: { stroke: '#06b6d4', strokeWidth: 2, opacity: 1 },
                         markerEnd: {
                             type: MarkerType.ArrowClosed,
                             color: '#06b6d4',
@@ -90,20 +98,62 @@ export function FlowCanvas({ data }: FlowCanvasProps) {
 
         setNodes(newNodes);
         setEdges(newEdges);
+        setHighlightedNode(null);
     }, [data, setNodes, setEdges]);
 
+    // Handle Highlighting
+    const onNodeClick: NodeMouseHandler = useCallback((_, node) => {
+        setHighlightedNode(curr => curr === node.id ? null : node.id);
+    }, []);
+
+    const onPaneClick = useCallback(() => {
+        setHighlightedNode(null);
+    }, []);
+
+    // Effect to update visual state based on highlight
+    useEffect(() => {
+        setNodes(nds => nds.map(node => {
+            if (!highlightedNode) return { ...node, data: { ...node.data, isDimmed: false } };
+
+            // Check if connected
+            const isConnected = node.id === highlightedNode ||
+                edges.some(e =>
+                    (e.source === highlightedNode && e.target === node.id) ||
+                    (e.target === highlightedNode && e.source === node.id)
+                );
+
+            return { ...node, data: { ...node.data, isDimmed: !isConnected } };
+        }));
+
+        setEdges(eds => eds.map(edge => {
+            if (!highlightedNode) return { ...edge, style: { ...edge.style, opacity: 1 }, animated: true };
+
+            const isConnected = edge.source === highlightedNode || edge.target === highlightedNode;
+
+            return {
+                ...edge,
+                style: { ...edge.style, opacity: isConnected ? 1 : 0.1 },
+                animated: isConnected
+            };
+        }));
+
+    }, [highlightedNode, setNodes, setEdges, edges]); // Re-run when highlight changes
+
     return (
-        <div className="w-full h-full">
+        <div className="w-full h-full bg-slate-950">
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
+                onNodeClick={onNodeClick}
+                onPaneClick={onPaneClick}
                 nodeTypes={nodeTypes}
                 fitView
+                minZoom={0.2}
             >
-                <Background gap={20} size={1} color="#334155" />
-                <Controls className="bg-slate-800 border-slate-700 text-slate-400 fill-slate-400" />
+                <Background gap={24} size={1} color="#1e293b" />
+                <Controls className="bg-slate-900 border-slate-800 text-slate-400 fill-slate-400" />
             </ReactFlow>
         </div>
     );

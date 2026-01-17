@@ -7,12 +7,11 @@ import { parseLogs } from './utils/logParser';
 import { ParsedData } from './types';
 
 function App() {
-    const [logText, setLogText] = useState('');
     const [parsedData, setParsedData] = useState<ParsedData | null>(null);
     const [parseError, setParseError] = useState<string | null>(null);
 
     const handleInput = useCallback((text: string) => {
-        setLogText(text);
+        // logText removed as it was unused
         if (!text.trim()) {
             setParsedData(null);
             setParseError(null);

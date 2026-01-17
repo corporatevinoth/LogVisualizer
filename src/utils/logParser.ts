@@ -4,7 +4,6 @@ export const parseLogs = (input: string): ParsedData => {
     let logs: LogEntry[] = [];
 
     const rawLines = input.split('\n');
-    const uniqueServices = new Set<string>();
 
     // 1. Try parsing whole input as JSON Array
     try {

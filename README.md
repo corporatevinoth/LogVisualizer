@@ -74,21 +74,17 @@ This will create a `dist/` directory containing the optimized `index.html`, CSS,
 
 ### Deploying to GitHub Pages
 
-1. Update `vite.config.ts` to set the base path to your repository name:
-   ```ts
-   export default defineConfig({
-     base: '/logflow-analytics/', // Replace with your repo name
-     plugins: [react()],
-   })
-   ```
-2. Build the project:
-   ```bash
-   npm run build
-   ```
-3. Commit the `dist` folder or use a deploying action (like `gh-pages`):
-   ```bash
-   npx gh-pages -d dist
-   ```
+This project is configured for automated deployment.
+
+1.  **Deploy Command**:
+    Simply run the following command to build and push the site to the `gh-pages` branch:
+    ```bash
+    npm run deploy
+    ```
+
+2.  **Live Site**:
+    Once the deployment completes, your app will be live at:
+    **https://corporatevinoth.github.io/LogVisualizer/**
 
 ## 🧪 Sample Data
 

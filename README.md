@@ -6,6 +6,11 @@
 
 Built with a **Cyberpunk / Deep Dark** aesthetic, it runs entirely client-side for maximum security.
 
+## 🔗 Live Demo
+
+- **Vercel**: [https://log-visualizer.vercel.app/](https://log-visualizer.vercel.app/)
+- **GitHub Pages**: [https://corporatevinoth.github.io/LogVisualizer/](https://corporatevinoth.github.io/LogVisualizer/)
+
 ## ✨ Features
 
 - **Universal Log Parsing**: Paste JSON arrays, Spring Boot logs, or raw text. The engine uses heuristics to auto-detect service names and interactions.
